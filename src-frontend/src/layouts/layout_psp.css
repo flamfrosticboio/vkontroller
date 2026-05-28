@@ -1,0 +1,18 @@
+.layout-psp .dpad {
+    left: 36px;
+    bottom: 36px;
+    position: absolute;
+}
+
+.layout-psp .action-buttons {
+    right: 36px;
+    bottom: 36px;
+    position: absolute;
+}
+
+.layout-psp .info {
+    position: absolute;
+    bottom: 32px;
+    left: 50%;
+    translate: -50% 0%;
+}

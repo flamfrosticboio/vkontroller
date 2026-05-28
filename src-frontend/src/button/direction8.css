@@ -1,0 +1,45 @@
+.d8-button {
+    position: absolute;
+}
+
+.d8-button.active {
+    transform: scale(110%);
+}
+
+
+.direction8 {
+    width: var(--d8-width);
+    height: var(--d8-height);
+    position: relative;
+
+    /* todo: remove */
+    border: 2px solid greenyellow;
+}
+
+.direction8 .d8-button.left,
+.direction8 .d8-button.right {
+    top: 50%;
+    translate: 0% -50%;
+}
+
+.direction8 .d8-button.right {
+    right: 0px;
+}
+
+.direction8 .d8-button.left {
+    left: 0px;
+}
+
+.direction8 .d8-button.up,
+.direction8 .d8-button.down {
+    left: 50%;
+    translate: -50% 0%;
+}
+
+.direction8 .d8-button.up {
+    top: 0px;
+}
+
+.direction8 .d8-button.down {
+    bottom: 0px;
+}

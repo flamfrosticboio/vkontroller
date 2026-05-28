@@ -1,0 +1,14 @@
+.hidden {
+    display: none;
+}
+
+
+.no-interact {
+    pointer-events: none;
+    user-select: none;
+    touch-action: none;
+}
+
+.touch-fix {
+    touch-action: none;
+}
