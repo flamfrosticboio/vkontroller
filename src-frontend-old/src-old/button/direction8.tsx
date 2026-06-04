@@ -82,7 +82,6 @@ export interface Direction8Props {
 }
 
 export function Direction8(props: Direction8Props) {
-  const [pressing, updatePressing] = createSignal(false);
   const [buttons, updateButtons] = createStore<Direction8State>(
     direction8Zero(),
   );
@@ -136,27 +135,34 @@ export function Direction8(props: Direction8Props) {
 
   function onPress(event: PointerEvent) {
     event.preventDefault();
-    if (event.target !== event.currentTarget) {
-      return;
-    }
 
-    updatePressing(true);
+    // Assuming the elements are not targeted by pointer-event, removing this edge case
+    // would be fine and good for performance.
+    // if (event.target !== event.currentTarget) {
+    //   return;
+    // }
+    // updatePressing(true);
+
     updateButtons(calcDirection8State(event.offsetX, event.offsetY));
   }
 
   function onMove(event: PointerEvent) {
     event.preventDefault();
-    if (event.target !== event.currentTarget || pressing() !== true) {
-      return;
-    }
-
-    updatePressing(true);
+    // Assuming the elements are not targeted by pointer-event, removing this edge case
+    // would be fine and good for performance.
+    // if (event.target !== event.currentTarget || pressing() !== true) {
+    //   return;
+    // }
+    // updatePressing(true);
     updateButtons(calcDirection8State(event.offsetX, event.offsetY));
   }
 
   function onRelease(event: PointerEvent) {
     event.preventDefault();
-    updatePressing(false);
+
+    // There is no need to track state since its a mobile touch device
+    // updatePressing(false);
+
     updateButtons(direction8Zero());
   }
 
