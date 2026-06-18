@@ -35,12 +35,13 @@ impl LowestIdManager {
         let id = writer.next_id;
 
         // stop giving id's since we are full
-        if id >= PlayerId::MAX {
+        if id == PlayerId::MAX {
             return Err(anyhow::anyhow!("Id's are full"));
         }
 
         writer.next_id += 1;
-        return Ok(IdGuard(self.clone(), id));
+
+        Ok(IdGuard(self.clone(), id))
     }
 
     pub async fn release(&self, id: PlayerId) {

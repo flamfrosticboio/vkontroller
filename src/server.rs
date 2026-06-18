@@ -220,7 +220,7 @@ impl Server {
         joinset.spawn(async move {
             'ws_loop: loop {
                 select! {
-                    _ = shutdown_signal.recv() => {break 'ws_loop; }
+                    _ = shutdown_signal.recv() => { break 'ws_loop; }
                     msg_raw = socket.recv() => {
                         // since msg_raw returns a Option<Result<msg>>, we just run it two times
                         // the Option is for the stream just ended

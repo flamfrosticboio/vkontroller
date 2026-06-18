@@ -4,6 +4,8 @@ use std::{fmt::Display, sync::Arc};
 
 #[cfg(target_os = "linux")]
 pub mod linux_controller;
+#[cfg(target_os = "windows")]
+pub mod windows_controller;
 
 pub enum StickId {
     Left,
@@ -156,5 +158,15 @@ pub fn create_controller(
         )?;
         return Ok((controller, handle.clone()));
     }
-    // just write manually for windows atp
+
+    #[cfg(target_os = "windows")]
+    {
+        let controller = windows_controller::WindowsController::new(
+            id,
+            input_channel_rx,
+            terminate_rx,
+            handle.clone(),
+        );
+        return Ok((controller?, handle.clone()));
+    }
 }

@@ -1,9 +1,0 @@
-.controller_button {
-	position: absolute;
-	width: fit-content;
-	height: fit-content;
-}
-
-.controller_button img {
-	object-fit: fill;
-}
