@@ -94,12 +94,12 @@ impl WindowsController {
 
             StickLeft(x, y) => {
                 buffer.thumb_lx = x;
-                buffer.thumb_ly = y;
+                buffer.thumb_ly = -y;
             }
 
             StickRight(x, y) => {
-                buffer.thumb_lx = x;
-                buffer.thumb_ly = y;
+                buffer.thumb_rx = x;
+                buffer.thumb_ry = -y;
             }
         }
     }
