@@ -175,6 +175,7 @@ impl Server {
             }
             Message::Close(frame) => {
                 let _ = socket.send(Message::Close(frame)).await;
+                tracing::info!("Close frame received");
                 Ok(true)
             }
             Message::Ping(payload) => {
@@ -211,15 +212,18 @@ impl Server {
                         // since msg_raw returns a Option<Result<msg>>, we just run it two times
                         // the Option is for the stream just ended
                         // the Result is where it couldn't even decode the received message
-                        let msg = msg_raw
-                            .ok_or_else(|| anyhow::anyhow!("{} stream ended", handle))? // first unwrap
-                            .with_context(|| format!("Failed to read websocket of {}", handle))?; // second unwrap
+                        let msg = match msg_raw {
+                            None => break 'ws_loop,
+                            Some(Err(e)) => return Err(e).with_context(|| format!("Failed to read websocket from {}", handle)),
+                            Some(Ok(msg)) => msg,
+                        };
 
                         let result = Self::handle_websocket_message(&handle, msg, &mut socket)
                             .await
                             .with_context(|| format!("Failed to handle message for {}", handle))?;
 
                         if result {
+                            tracing::info!("Breaking out of the loop, should expect fine");
                             break 'ws_loop;
                         }
                     }
@@ -245,7 +249,7 @@ impl Server {
 
         let handle3 = handle2.clone();
         joinset.spawn(async move {
-            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 
             // Fake assign player_id
             let player_event = ControllerOutputEvent::PlayerChange(handle3.get_id());
@@ -280,12 +284,12 @@ impl Server {
                 if let Ok((controller, handle)) = create_controller(id.inner(), server_tx.clone())
                     .with_context(|| format!("Failed to create controller for {}", who))
                 {
-                    let mut joinset: tokio::task::JoinSet<anyhow::Result<()>> =
+                    let joinset: tokio::task::JoinSet<anyhow::Result<()>> =
                         tokio::task::JoinSet::new();
 
                     tracing::info!("client({}) -> handle({})", who, handle);
 
-                    joinset.spawn(async move {
+                    tokio::task::spawn(async move {
                         let name = controller.to_string();
                         controller
                             .run_event()
