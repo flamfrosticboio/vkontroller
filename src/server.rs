@@ -9,6 +9,7 @@ use axum::{
 };
 use std::{net::SocketAddr, sync::Arc};
 use tokio::select;
+use tower_http::services::{self, ServeDir};
 
 use crate::{
     controller::{Controller, ControllerHandle, ControllerOutputEvent, create_controller},
@@ -88,11 +89,8 @@ impl Server {
 
         let router: Router<()> = Router::new()
             .route("/ws", get(Server::ws_handler))
-            .with_state(server)
-            .fallback(|req: axum::http::Request<axum::body::Body>| async move {
-                tracing::warn!("Unmatched request: {} {}", req.method(), req.uri());
-                (axum::http::StatusCode::NOT_ACCEPTABLE, "websockets only")
-            });
+            .fallback_service(ServeDir::new("dist"))
+            .with_state(server);
 
         let mut shutdown_serve_rx = shutdown_tx.subscribe();
 
