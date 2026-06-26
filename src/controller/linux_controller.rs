@@ -1,5 +1,5 @@
 use crate::{
-    controller::{ButtonMap, Controller, ControllerHandle, ControllerOutputEvent, StickId},
+    controller::{ButtonMap, Controller, ControllerHandle, ControllerOutputEvent},
     server::ControllerInputEvent,
     shared::PlayerId,
 };
@@ -27,6 +27,11 @@ const BUTTON_MAP: &[(ButtonMap, KeyCode)] = &[
     (ButtonMap::ButtonRightStick, KeyCode::BTN_THUMBR),
 ];
 
+enum StickId {
+    Left,
+    Right,
+}
+
 const MAX_EFFECTS: usize = 255;
 type EffectId = i16;
 pub struct FFEffectManager {
@@ -39,16 +44,14 @@ impl FFEffectManager {
         self.free.pop().or_else(|| {
             self.counter += 1;
             if self.counter < MAX_EFFECTS {
-                // very dangerous tetritory
-                let val = match i16::try_from(self.counter) {
+                // some problems
+                match i16::try_from(self.counter) {
                     Ok(val) => Some(val),
                     Err(err) => {
                         tracing::error!(error = %err, "Could not convert id from usize to i16");
                         None
                     }
-                };
-
-                return val;
+                }
             } else {
                 None
             }
@@ -88,7 +91,8 @@ impl LinuxController {
             // this snippet below just copies alr
             keys.insert(*keycode)
         }
-        return keys;
+
+        keys
     }
 
     // This should be inline since its just a simple constructor
@@ -177,14 +181,14 @@ impl LinuxController {
         res.push(*AbsoluteAxisEvent::new(AbsoluteAxisCode::ABS_HAT0X, x));
         res.push(*AbsoluteAxisEvent::new(AbsoluteAxisCode::ABS_HAT0Y, y));
 
-        return res;
+        res
     }
 
     fn construct_event_trigger(left: u8, right: u8) -> Vec<InputEvent> {
-        return vec![
+        vec![
             *AbsoluteAxisEvent::new(AbsoluteAxisCode::ABS_Z, i32::from(left)),
             *AbsoluteAxisEvent::new(AbsoluteAxisCode::ABS_RZ, i32::from(right)),
-        ];
+        ]
     }
 
     fn construct_event_stick(kind: StickId, x: i16, y: i16) -> Vec<InputEvent> {
@@ -199,10 +203,10 @@ impl LinuxController {
             ),
         };
 
-        return vec![
+        vec![
             *evdev::AbsoluteAxisEvent::new(x_code, i32::from(x)),
             *evdev::AbsoluteAxisEvent::new(y_code, i32::from(y)),
-        ];
+        ]
     }
 }
 
@@ -214,7 +218,7 @@ impl Display for LinuxController {
 
 impl Controller for LinuxController {
     fn new(
-        id: PlayerId,
+        player_id: PlayerId,
         input_rx: tokio::sync::mpsc::Receiver<ControllerInputEvent>,
         terminate_rx: tokio::sync::broadcast::Receiver<()>,
         handle: Arc<ControllerHandle>,
@@ -272,11 +276,11 @@ impl Controller for LinuxController {
         let event_stream = device.into_event_stream()?;
 
         Ok(Box::new(Self {
-            player_id: id,
-            event_stream: event_stream,
-            handle: handle,
-            input_rx: input_rx,
-            terminate_rx: terminate_rx,
+            player_id,
+            event_stream,
+            handle,
+            input_rx,
+            terminate_rx,
             effect_manager: tokio::sync::Mutex::new(FFEffectManager::default()),
         }))
     }
@@ -286,7 +290,7 @@ impl Controller for LinuxController {
 
         'event_loop: loop {
             select! {
-                _ = (&mut self.terminate_rx).recv() => {
+                _ = self.terminate_rx.recv() => {
                     tracing::debug!("Received termination event for {}", self_id);
                     break 'event_loop;
                 }
@@ -294,7 +298,7 @@ impl Controller for LinuxController {
                     let event = event_result?;
                     Self::handle_event_item(&mut self, event).await?;
                 }
-                item = (&mut self.input_rx).recv() => {
+                item = self.input_rx.recv() => {
                     if let Some(item) = item {
 
                         let event = match item {

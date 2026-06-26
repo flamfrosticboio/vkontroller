@@ -110,6 +110,10 @@ impl ControllerHandle {
         }
         Ok(())
     }
+
+    pub fn get_id(&self) -> u32 {
+        self.id
+    }
 }
 
 pub trait Controller: Display {
@@ -146,7 +150,7 @@ pub fn create_controller(
             terminate_rx,
             handle.clone(),
         )?;
-        return Ok((controller, handle.clone()));
+        Ok((controller, handle.clone()))
     }
 
     #[cfg(target_os = "windows")]

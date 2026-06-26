@@ -12,7 +12,7 @@ use tokio::select;
 
 use crate::{
     controller::{Controller, ControllerHandle, ControllerOutputEvent, create_controller},
-    shared::{LowestIdManager, PlayerId},
+    shared::LowestIdManager,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -152,9 +152,9 @@ impl Server {
                     None => Err(anyhow::format_err!("{} sent an unknown event", handle)),
                 };
 
-                return result
+                result
                     .with_context(|| format!("Failed to decode response on {}", handle))
-                    .map(|_| false);
+                    .map(|_| false)
             }
             Message::Text(_) => {
                 // Just message the sender with a custom message
@@ -168,10 +168,10 @@ impl Server {
 
                 // we want to close the connection since we know 99% its some
                 // random bullshit
-                return Err(anyhow::format_err!(
+                Err(anyhow::format_err!(
                     "{} sent an text-based request which is incompatible with this server",
                     handle,
-                ));
+                ))
             }
             Message::Close(frame) => {
                 let _ = socket.send(Message::Close(frame)).await;
@@ -186,36 +186,22 @@ impl Server {
             }
             Message::Pong(_) => {
                 // just do nothing
-                return Ok(false);
+                Ok(false)
             }
         }
     }
 
     async fn run_listeners(
         self: Arc<Self>,
-        id: PlayerId,
         mut socket: WebSocket,
-        who: SocketAddr,
+        handle: Arc<ControllerHandle>,
+        server_tx: tokio::sync::mpsc::Sender<ControllerOutputEvent>,
+        mut server_rx: tokio::sync::mpsc::Receiver<ControllerOutputEvent>,
+        mut joinset: tokio::task::JoinSet<anyhow::Result<()>>,
     ) -> anyhow::Result<()> {
         let mut shutdown_signal = self.shutdown_tx.subscribe();
-        let (server_tx, mut server_rx) = tokio::sync::mpsc::channel::<ControllerOutputEvent>(1024);
 
-        let (controller, handle) = create_controller(id, server_tx.clone())
-            .with_context(|| format!("Failed to create controller for {}", who))?;
-
-        tracing::info!("client({}) connected and associated to {}", who, handle);
-
-        let mut joinset: tokio::task::JoinSet<anyhow::Result<()>> = tokio::task::JoinSet::new();
-
-        joinset.spawn(async move {
-            let name = controller.to_string();
-            controller
-                .run_event()
-                .await
-                .with_context(|| format!("Could not start controller {}", name))
-        });
-
-        let external_handle = handle.clone();
+        let handle2 = handle.clone();
 
         joinset.spawn(async move {
             'ws_loop: loop {
@@ -233,7 +219,7 @@ impl Server {
                             .await
                             .with_context(|| format!("Failed to handle message for {}", handle))?;
 
-                        if result == true {
+                        if result {
                             break 'ws_loop;
                         }
                     }
@@ -251,29 +237,25 @@ impl Server {
                 }
             }
 
-            // Final post quit
-            handle.terminate().with_context(|| format!("Failed to terminate {}", handle))
-
-            // There is no need for Ok(()) since handle just returns Result<()>
+            Ok(())
         });
 
         // although its sad that the leds in linux does not even exist since theres no
         // xinput manager, we will just artificially make one
 
-        let external_handle_2 = external_handle.clone();
+        let handle3 = handle2.clone();
         joinset.spawn(async move {
             tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
             // Fake assign player_id
-            let player_event = ControllerOutputEvent::PlayerChange(u32::from(id));
+            let player_event = ControllerOutputEvent::PlayerChange(handle3.get_id());
 
-            tracing::debug!("Attempting to send player number to {}", external_handle_2);
+            tracing::debug!("Attempting to send player number to {}", handle3);
 
-            server_tx.send(player_event).await.with_context(|| {
-                format!("Failed to send player number to {}", external_handle_2)
-            })?;
-
-            tracing::info!("Player number {} sent to {}", id, external_handle_2);
+            server_tx
+                .send(player_event)
+                .await
+                .with_context(|| format!("Failed to send player number to {}", handle3))?;
 
             Ok(())
         });
@@ -282,7 +264,7 @@ impl Server {
             result??;
         }
 
-        tracing::info!("{} disconnected gracefully", external_handle);
+        tracing::info!("{} disconnected gracefully", handle2);
 
         Ok(())
     }
@@ -290,10 +272,45 @@ impl Server {
     async fn handle_websocket(self: Arc<Self>, socket: WebSocket, who: SocketAddr) {
         match self.id.acquire_id().await {
             Ok(mut id) => {
-                if let Err(err) = Self::run_listeners(self, id.inner(), socket, who).await {
-                    tracing::error!(error = %err, "An error occurred while running listeners for {}", who);
+                let (server_tx, server_rx) =
+                    tokio::sync::mpsc::channel::<ControllerOutputEvent>(1024);
+
+                tracing::info!("client({}) connected", who);
+
+                if let Ok((controller, handle)) = create_controller(id.inner(), server_tx.clone())
+                    .with_context(|| format!("Failed to create controller for {}", who))
+                {
+                    let mut joinset: tokio::task::JoinSet<anyhow::Result<()>> =
+                        tokio::task::JoinSet::new();
+
+                    tracing::info!("client({}) -> handle({})", who, handle);
+
+                    joinset.spawn(async move {
+                        let name = controller.to_string();
+                        controller
+                            .run_event()
+                            .await
+                            .with_context(|| format!("Error while running {} daemon", name))
+                    });
+
+                    if let Err(err) = Self::run_listeners(
+                        self,
+                        socket,
+                        handle.clone(),
+                        server_tx,
+                        server_rx,
+                        joinset,
+                    )
+                    .await
+                    {
+                        tracing::error!(error = %err, "An error occurred while running listeners for {}", who);
+                    }
+
+                    if let Err(err) = handle.terminate() {
+                        tracing::warn!(err = %err, "Failed to terminale {}", handle)
+                    }
+                    id.release().await;
                 }
-                id.release().await;
             }
             Err(err) => {
                 tracing::error!(error = %err, "Could not assign player id to {}", who);

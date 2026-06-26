@@ -56,6 +56,6 @@ impl IdGuard {
     }
 
     pub fn inner(&self) -> PlayerId {
-        return self.1;
+        self.1
     }
 }
