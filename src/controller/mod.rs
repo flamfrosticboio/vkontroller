@@ -7,11 +7,6 @@ pub mod linux_controller;
 #[cfg(target_os = "windows")]
 pub mod windows_controller;
 
-pub enum StickId {
-    Left,
-    Right,
-}
-
 #[derive(Clone, Copy, Debug)]
 pub enum ControllerOutputEvent {
     RumbleOn,
@@ -27,7 +22,7 @@ impl ControllerOutputEvent {
             Self::PlayerChange(player) => {
                 let mut vecs = player.to_le_bytes().to_vec();
                 vecs.push(0x01); // the type
-                return vecs;
+                vecs
             }
         }
     }
@@ -77,36 +72,31 @@ impl ControllerHandle {
         input_channel: tokio::sync::mpsc::Sender<ControllerInputEvent>,
         output_channel: tokio::sync::mpsc::Sender<ControllerOutputEvent>,
     ) -> Self {
-        return Self {
-            id: id,
-            terminate_signal: terminate_signal,
-            input_channel: input_channel,
-            output_channel: output_channel,
-        };
+        Self {
+            id,
+            terminate_signal,
+            input_channel,
+            output_channel,
+        }
     }
 
     pub async fn send_input_update(&self, value: ControllerInputEvent) -> anyhow::Result<()> {
-        self.input_channel
-            .send(value.clone())
-            .await
-            .with_context(|| {
-                format!(
-                    "[{}][Interface]: Failed to send input update with value {:?}",
-                    self, value
-                )
-            })
+        self.input_channel.send(value).await.with_context(|| {
+            format!(
+                "[{}][Interface]: Failed to send input update with value {:?}",
+                self, value
+            )
+        })
     }
 
+    #[allow(dead_code)]
     pub async fn send_output_update(&self, value: ControllerOutputEvent) -> anyhow::Result<()> {
-        self.output_channel
-            .send(value.clone())
-            .await
-            .with_context(|| {
-                format!(
-                    "[{}][Interface]: Failed to send output update with value {:?}",
-                    self, value
-                )
-            })
+        self.output_channel.send(value).await.with_context(|| {
+            format!(
+                "[{}][Interface]: Failed to send output update with value {:?}",
+                self, value
+            )
+        })
     }
 
     pub fn terminate(&self) -> anyhow::Result<()> {

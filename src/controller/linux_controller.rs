@@ -15,11 +15,9 @@ use tokio::select;
 const BUTTON_MAP: &[(ButtonMap, KeyCode)] = &[
     (ButtonMap::ButtonSouth, KeyCode::BTN_SOUTH),
     (ButtonMap::ButtonEast, KeyCode::BTN_EAST),
-    
     // Holy shit why are they in reverse bro :cry:
     (ButtonMap::ButtonWest, KeyCode::BTN_NORTH),
     (ButtonMap::ButtonNorth, KeyCode::BTN_WEST),
-
     (ButtonMap::ButtonLeftBumper, KeyCode::BTN_TL),
     (ButtonMap::ButtonRightBumper, KeyCode::BTN_TR),
     (ButtonMap::ButtonSelect, KeyCode::BTN_SELECT),
@@ -135,7 +133,6 @@ impl LinuxController {
                 };
 
                 // CAUTION: This approach is unsafe since it will lead to thread deadlocks
-                // todo: Write an uinput stream channel
                 let device = self.event_stream.device_mut();
                 let mut event = device.process_ff_upload(event)?;
 
@@ -155,7 +152,6 @@ impl LinuxController {
                 let mut manager = self.effect_manager.lock().await;
 
                 // CAUTION: This approach is unsafe since it will lead to thread deadlocks
-                // todo: Write an uinput stream channel
                 let device = self.event_stream.device_mut();
                 let event = device.process_ff_erase(event)?;
                 manager.return_id(event.effect_id() as i16);
