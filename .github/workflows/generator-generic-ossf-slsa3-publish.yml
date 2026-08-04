@@ -25,16 +25,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ========================================================
-      #
-      # Step 1: Build your artifacts.
-      #
-      # ========================================================
-      - name: Build artifacts
-        run: |
-            # These are some amazing artifacts.
-            echo "artifact1" > artifact1
-            echo "artifact2" > artifact2
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build -- --outDir ../dist
+
+      - name: Build backend
+        run: cargo build --release
 
       # ========================================================
       #
@@ -50,9 +46,9 @@ jobs:
           set -euo pipefail
 
           # List the artifacts the provenance will refer to.
-          files=$(ls artifact*)
+          files=$(ls dist/* target/release/vkontroller)
           # Generate the subjects (base64 encoded).
-          echo "hashes=$(sha256sum $files | base64 -w0)" >> "${GITHUB_OUTPUT}"
+          echo "digests=$(sha256sum $files | base64 -w0)" >> "${GITHUB_OUTPUT}"
 
   provenance:
     needs: [build]
