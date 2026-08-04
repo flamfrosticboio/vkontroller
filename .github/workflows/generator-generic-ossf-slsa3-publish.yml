@@ -12,6 +12,11 @@ name: SLSA generic generator
 
 on:
   workflow_dispatch:
+  inputs:
+      tag_name:
+        description: 'Release tag to upload to (e.g. v1.0.0)'
+        required: true
+        type: string
   release:
     types: [created]
 
@@ -119,8 +124,9 @@ jobs:
       - name: Upload zips to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          gh release upload ${{ github.event.release.tag_name }} *.zip
+          gh release upload ${{ github.event.release.tag_name || inputs.tag_name }} *.zip
 
   # ============================================================
   # Step 3: generate and sign SLSA provenance for the zips.
