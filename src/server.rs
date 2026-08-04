@@ -9,7 +9,7 @@ use axum::{
 };
 use std::{net::SocketAddr, sync::Arc};
 use tokio::select;
-use tower_http::services::{self, ServeDir};
+use tower_http::services::ServeDir;
 
 use crate::{
     controller::{Controller, ControllerHandle, ControllerOutputEvent, create_controller},
