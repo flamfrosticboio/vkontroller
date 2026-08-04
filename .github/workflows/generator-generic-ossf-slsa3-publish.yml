@@ -1,0 +1,130 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+# This workflow lets you generate SLSA provenance file for your project.
+# The generation satisfies level 3 for the provenance requirements - see https://slsa.dev/spec/v0.1/requirements
+# The project is an initiative of the OpenSSF (openssf.org) and is developed at
+# https://github.com/slsa-framework/slsa-github-generator.
+# The provenance file can be verified using https://github.com/slsa-framework/slsa-verifier.
+# For more information about SLSA and how it improves the supply-chain, visit slsa.dev.
+name: SLSA generic generator
+
+on:
+  workflow_dispatch:
+  release:
+    types: [created]
+
+jobs:
+  # ============================================================
+  # These three jobs run in parallel — each builds one thing
+  # and uploads it as a temporary workflow artifact.
+  # ============================================================
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build -- --outDir ../dist
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+          if-no-files-found: error
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Linux binary
+        run: cargo build --release --target x86_64-unknown-linux-gnu
+
+      - name: Upload Linux binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-linux
+          path: target/x86_64-unknown-linux-gnu/release/vkontroller
+          if-no-files-found: error
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Windows binary
+        run: cargo build --release --target x86_64-pc-windows-msvc
+
+      - name: Upload Windows binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-windows
+          path: target/x86_64-pc-windows-msvc/release/vkontroller.exe
+          if-no-files-found: error
+
+  # ============================================================
+  # Step 2: download everything, zip per platform, hash,
+  #         and upload zips to the release — all in one job.
+  # ============================================================
+  package:
+    needs: [build-frontend, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # needed for gh release upload
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Assemble Linux zip
+        run: |
+          mkdir -p release-linux
+          cp -r artifacts/frontend-dist release-linux/dist
+          cp artifacts/binary-linux/vkontroller release-linux/
+          cd release-linux
+          zip -r ../vkontroller-linux.zip .
+
+      - name: Assemble Windows zip
+        run: |
+          mkdir -p release-windows
+          cp -r artifacts/frontend-dist release-windows/dist
+          cp artifacts/binary-windows/vkontroller.exe release-windows/
+          cd release-windows
+          zip -r ../vkontroller-windows.zip .
+
+      - name: Generate subject for provenance
+        id: hash
+        run: |
+          set -euo pipefail
+          files=$(ls *.zip)
+          echo "hashes=$(sha256sum $files | base64 -w0)" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload zips to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.event.release.tag_name }} *.zip
+
+  # ============================================================
+  # Step 3: generate and sign SLSA provenance for the zips.
+  # ============================================================
+  provenance:
+    needs: [package]
+    permissions:
+      actions: read   # To read the workflow path.
+      id-token: write # To sign the provenance.
+      contents: write # To add assets to a release.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.4.0
+    with:
+      base64-subjects: "${{ needs.package.outputs.hashes }}"
+      upload-assets: true # Optional: Upload to a new release
