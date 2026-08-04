@@ -32,6 +32,7 @@ jobs:
           git submodule update --init --recursive --depth=1
 
       - name: Setup node_modules
+        working-directory: frontend
         run: npm ci --omit=dev
 
       - name: Build frontend
