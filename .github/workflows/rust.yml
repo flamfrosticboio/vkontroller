@@ -16,6 +16,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Checkout submodule with PAT
+      run: |
+        git config --global url."https://x-access-token:${{ secrets.SUBMODULE_PAT }}@github.com/".insteadOf "https://github.com/"
+        git submodule update --init --recursive --depth=1
+
     - name: Build
       run: cargo build --verbose
     - name: Run tests
