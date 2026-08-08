@@ -34,7 +34,7 @@ fn main() {
     }
 
     let status = Command::new("npm")
-        .args(["install"])
+        .args(["ci", "--omit=dev"])
         .current_dir(FRONTEND_DIR)
         .status()
         .expect("Failed to run 'npm install'");
