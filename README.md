@@ -51,3 +51,13 @@ To control logging, use `RUST_LOG` to control logging. Can be set to:
 - `info`
 - `debug`
 - `trace` (not recommended)
+
+## Author's Notes
+
+This project is not maintained up to date, but it is at least maintained over
+the year. You can fork off this repo if you want to develop using this project
+as your base.
+
+## License
+
+This project uses [AGPL v3 license](./LICENSE).
