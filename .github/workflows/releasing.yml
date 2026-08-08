@@ -1,14 +1,6 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-# This workflow lets you generate SLSA provenance file for your project.
-# The generation satisfies level 3 for the provenance requirements - see https://slsa.dev/spec/v0.1/requirements
-# The project is an initiative of the OpenSSF (openssf.org) and is developed at
-# https://github.com/slsa-framework/slsa-github-generator.
-# The provenance file can be verified using https://github.com/slsa-framework/slsa-verifier.
-# For more information about SLSA and how it improves the supply-chain, visit slsa.dev.
-name: SLSA generic generator
+# The generation satisfies level 3 for the provenance requirements 
+# See https://slsa.dev/spec/v0.1/requirements
+name: Release assets and SLSA
 
 on:
   workflow_dispatch:
@@ -21,12 +13,12 @@ on:
     types: [created]
 
 jobs:
-  # ============================================================
-  # These three jobs run in parallel — each builds one thing
-  # and uploads it as a temporary workflow artifact.
-  # ============================================================
+  test:
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
 
   build-frontend:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,6 +44,7 @@ jobs:
           if-no-files-found: error
 
   build-linux:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,6 +60,7 @@ jobs:
           if-no-files-found: error
 
   build-windows:
+    needs: test
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -81,10 +75,7 @@ jobs:
           path: target/x86_64-pc-windows-msvc/release/vkontroller.exe
           if-no-files-found: error
 
-  # ============================================================
-  # Step 2: download everything, zip per platform, hash,
-  #         and upload zips to the release — all in one job.
-  # ============================================================
+  # Compile them all into multiple zip files
   package:
     needs: [build-frontend, build-linux, build-windows]
     runs-on: ubuntu-latest
@@ -129,6 +120,7 @@ jobs:
           gh release upload ${{ github.event.release.tag_name || inputs.tag_name }} *.zip --clobber
 
 
+  # Run provenance (SLSA)
   provenance:
     needs: [package]
     permissions:
