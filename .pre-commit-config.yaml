@@ -1,0 +1,38 @@
+default_install_hook_types: [pre-commit, commit-msg]
+default_stages: [pre-commit, pre-push]
+
+repos: 
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.5.5
+    hooks:
+      - id: remove-tabs
+        args: [--whitespaces-count, '4']
+      - id: insert-license
+        name: Insert license header (.ts)
+        files: \.rs$
+        args:
+          - --license-filepath
+          - LICENSE-HEADER.txt
+          - --comment-style
+          - "//"
+          - --use-current-year
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args:
+          - --verbose
