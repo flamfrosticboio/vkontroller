@@ -4,6 +4,10 @@ use std::process::Command;
 const FRONTEND_DIR: &str = "frontend";
 
 fn main() {
+    if std::env::var("SKIP_BUILD_SCRIPT").is_ok() {
+        return;
+    }
+
     let profile = env::var("PROFILE").unwrap_or_default();
 
     if profile == "release" {
